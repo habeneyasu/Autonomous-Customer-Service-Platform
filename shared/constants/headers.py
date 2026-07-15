@@ -1,0 +1,3 @@
+CORRELATION_ID_HEADER = "X-Correlation-ID"
+IDEMPOTENCY_KEY_HEADER = "Idempotency-Key"
+REQUEST_ID_HEADER = "X-Request-ID"
