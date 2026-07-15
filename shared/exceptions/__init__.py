@@ -1,8 +1,5 @@
-"""Shared platform components: config, models, schemas, enums, utils, exceptions, logging."""
-
-from shared.config import Settings, get_settings
-from shared.exceptions import (
-    AppError,
+from shared.exceptions.base import AppError
+from shared.exceptions.domain import (
     ConflictError,
     ExternalServiceError,
     ForbiddenError,
@@ -14,16 +11,8 @@ from shared.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
-from shared.logging import configure_logging, get_logger
 
 __all__ = [
-    # Config
-    "Settings",
-    "get_settings",
-    # Logging
-    "configure_logging",
-    "get_logger",
-    # Exceptions
     "AppError",
     "ConflictError",
     "ExternalServiceError",

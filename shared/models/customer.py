@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, text
+from sqlalchemy import DateTime, Enum, ForeignKey, String, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -10,6 +10,7 @@ from shared.enum.customer_status import CustomerStatus
 from shared.enum.id_type import IdType
 from shared.models.address import Address
 from shared.models.base import Base
+from shared.utils.datetime import utc_now
 
 if TYPE_CHECKING:
     from shared.models.account import Account
@@ -17,12 +18,13 @@ if TYPE_CHECKING:
     from shared.models.user_auth import UserAuth
 
 
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
 class Customer(Base):
     __tablename__ = "customers"
+    __table_args__ = (
+        UniqueConstraint("email", name="uq_customers_email"),
+        UniqueConstraint("phone_number", name="uq_customers_phone_number"),
+        UniqueConstraint("id_type", "id_number", name="uq_customers_id_type_id_number"),
+    )
 
     customer_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -66,12 +68,11 @@ class Customer(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default=text("now()"),
+        server_default=text("CURRENT_TIMESTAMP"),
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default=text("now()"),
-        onupdate=_utc_now,
+        server_default=text("CURRENT_TIMESTAMP"),
+        onupdate=utc_now,
     )
-
