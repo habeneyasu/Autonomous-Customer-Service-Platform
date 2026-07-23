@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from shared.constants.currency import DEFAULT_CURRENCY
 from shared.enum.account_status import AccountStatus
 from shared.enum.account_type import AccountType
-from shared.schemas.common import ORMModel
+from shared.schemas.common import AliasModel, ORMModel
 
 
 class AccountCreate(BaseModel):
@@ -22,6 +22,21 @@ class AccountCreate(BaseModel):
 class AccountUpdate(BaseModel):
     account_type: AccountType | None = None
     status: AccountStatus | None = None
+
+
+class FreezeAccountRequest(AliasModel):
+    account_id: UUID | None = Field(default=None, alias="accountId")
+    otp_code: str = Field(..., min_length=4, max_length=8, alias="otpCode")
+    reason: str | None = Field(default=None, max_length=255)
+
+
+class FreezeAccountResponse(AliasModel):
+    account_id: UUID = Field(..., alias="accountId")
+    account_number: str = Field(..., alias="accountNumber")
+    customer_id: UUID = Field(..., alias="customerId")
+    status: AccountStatus
+    previous_status: AccountStatus = Field(..., alias="previousStatus")
+    reason: str | None = None
 
 
 class AccountRead(ORMModel):

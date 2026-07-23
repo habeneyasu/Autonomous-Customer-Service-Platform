@@ -8,6 +8,10 @@ class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class AliasModel(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class ErrorResponse(BaseModel):
     code: str
     message: str

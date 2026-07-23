@@ -13,6 +13,8 @@ class CustomerCreate(BaseModel):
     middle_name: str | None = Field(default=None, max_length=100)
     last_name: str = Field(..., max_length=100)
     email: EmailStr
+    username: str = Field(..., min_length=3, max_length=100)
+    password: str = Field(..., min_length=8, max_length=100)
     phone_number: str = Field(..., max_length=50)
     id_type: IdType
     id_number: str = Field(..., max_length=100)
@@ -25,6 +27,7 @@ class CustomerUpdate(BaseModel):
     middle_name: str | None = Field(default=None, max_length=100)
     last_name: str | None = Field(default=None, max_length=100)
     email: EmailStr | None = None
+    username: str | None = None
     phone_number: str | None = Field(default=None, max_length=50)
     address_id: UUID | None = None
     status: CustomerStatus | None = None
@@ -36,6 +39,7 @@ class CustomerRead(ORMModel):
     middle_name: str | None
     last_name: str
     email: str
+    username: str
     phone_number: str
     id_type: IdType
     id_number: str
