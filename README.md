@@ -3,11 +3,11 @@
 **A Zero-Trust Model Context Protocol (MCP) Control Plane for Regulated Financial AI**
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![MCP Control Plane](https://img.shields.io/badge/MCP-control%20plane-0B6E4F.svg)](docs/mcp-architecture.md)
-[![AAIF-aligned](https://img.shields.io/badge/AAIF-aligned%20prototype-6f42c1.svg)](docs/mcp-architecture.md)
+[![MCP Control Plane](https://img.shields.io/badge/MCP-control%20plane-0B6E4F.svg)](#architecture-at-a-glance)
+[![AAIF Ambassadorship](https://img.shields.io/badge/AAIF-ambassadorship%20contribution-6f42c1.svg)](#built-as-an-aaif-ambassadorship-contribution)
 [![License](https://img.shields.io/badge/license-see%20LICENSE-lightgrey.svg)](LICENSE)
 
-Prototype reference for banking/wallet customer service: agents reason in natural language; **enterprise truth and side effects only cross MCP**.
+Prototype for banking/wallet customer service: agents reason in natural language; **enterprise truth and side effects only cross MCP**.
 
 ---
 
@@ -36,20 +36,21 @@ Standard desktop MCP demos often wire an LLM straight to tools with global disco
 ```
 
 > [!IMPORTANT]
-> Agents never import SQL or domain services. The sole enterprise interface is  
-> `POST /mcp/v1/tools/invoke` on the MCP server (`:8001`).
+> Agents never import SQL, the vector store, or domain services.  
+> The sole enterprise interface is `POST /mcp/v1/tools/invoke` on the MCP server (`:8001`).  
+> **MCP calls are intent-scoped** — the customer reply uses only results from tools allowed for that intent.
 
 ---
 
 ## Architecture at a Glance
 
-End-to-end request lifecycle — **user input → LLM proposes → MCP executes (incl. RAG) → grounded reply**:
+End-to-end lifecycle: **user input → tokenize → LLM proposes → Worker authorizes → MCP executes (RAG or domain) → grounded reply**.
 
 ![ACSP Zero-Trust Control Plane](docs/assets/zero-trust-control-plane.png)
 
 ```text
  Customer / web chat
-        │  message + session
+        │
         ▼
  ┌──────────────────────────────────────────────────────────┐
  │  Orchestrator  (LLM proposes tool calls)                 │
@@ -103,26 +104,15 @@ End-to-end request lifecycle — **user input → LLM proposes → MCP executes 
 | **6b. Domain** | Account / transfer tools | Only when intent permits it; reads = customer-scoped; writes = OTP + ownership |
 | **7. Respond** | Orchestrator → UI | Answer from **intent-scoped** MCP results (RAG or domain) — never from tools outside the manifest |
 
-### RAG path (GENERAL_INQUIRY)
+### RAG path (`GENERAL_INQUIRY`)
 
 Policy answers are **not** free-form model memory. Offline, docs in `knowledge/sources/` are loaded, chunked, and indexed into Chroma (`.knowledge/chroma`). Online, intent `GENERAL_INQUIRY` loads a manifest that allows **only** `search_knowledge_base`; MCP runs hybrid retrieval and returns evidence; the assistant reply (and workbench `via …` chip) is built from that payload.
 
 ```text
-knowledge/sources/*.md
-        │
-        ▼  load → chunk (overlap) → embed / index
-   Chroma vector store
-        │
-        ▼  invoke search_knowledge_base
-   hybrid retrieve  →  MCP SUCCESS + ranked results  →  customer reply
+knowledge/sources/*.md → chunk/index (Chroma) → search_knowledge_base → ranked results → customer reply
 ```
 
-> [!IMPORTANT]
-> The LLM never crosses the HTTP MCP boundary and never queries the vector store or DB directly.  
-> **MCP calls are intent-scoped** (manifest). The model only **proposes**; Worker + MCP **authorize, execute, and audit**.  
-> The customer reply is built from results of tools allowed for that intent — e.g. RAG only under `GENERAL_INQUIRY`.
-
-Canonical design doc: [docs/mcp-architecture.md](docs/mcp-architecture.md) · prototype scope: [docs/architecture-prototype-guide.md](docs/architecture-prototype-guide.md)
+**Why HTTP MCP over stdio?** Desktop stdio fits local agents; production banking needs a decoupled HTTP boundary for scale, network isolation, and centralized audit — implemented here as the MCP server on `:8001`.
 
 ---
 
@@ -130,17 +120,12 @@ Canonical design doc: [docs/mcp-architecture.md](docs/mcp-architecture.md) · pr
 
 | Control | What it does |
 |---------|----------------|
-| **Spatial PII tokenization** | Account/phone/etc. become `[ACC_A1B2]`-style tokens before the model runs; secrets (PIN/OTP/password) are redacted and never rehydrated into LLM-facing tool args. |
-| **Intent-scoped manifests** | e.g. `GENERAL_INQUIRY` may only call `search_knowledge_base`; abuse attempts are blocked client-side as `UNAUTHORIZED`. |
-| **Platform-owned context** | `customerContext` is injected by the Worker MCP client — not invented by the LLM. |
-| **Out-of-band OTP gates** | State-changing tools (`execute_p2p_transfer`, `freeze_account`) require a verified OTP purpose before commit. |
+| **Spatial PII tokenization** | Accounts/phones become `[ACC_A1B2]` before the model runs |
+| **Intent-scoped manifests** | e.g. `GENERAL_INQUIRY` → only `search_knowledge_base`; abuse → `UNAUTHORIZED` |
+| **Platform-owned context** | Worker injects `customerContext` — not prompt-trusted |
+| **Out-of-band OTP gates** | `execute_p2p_transfer` / `freeze_account` require verified OTP |
 
 Rehydration of vaulted values happens **at the MCP invoke boundary**, outside model context.
-
-### Architecture deep-dive & trade-offs
-
-**Why HTTP MCP (`POST /mcp/v1/tools/invoke`) over stdio?**  
-Standard stdio transport fits local desktop agent integrations. Production banking needs a **decoupled HTTP microservice boundary** for horizontal scaling, network isolation between agents and tools, and a single place to attach centralized, masked audit trails — which this control plane implements as an MCP server on `:8001`.
 
 ---
 
@@ -151,36 +136,39 @@ Standard stdio transport fits local desktop agent integrations. Production banki
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# Set DATABASE_URL / REDIS_URL as needed (URL-encode @ in DB passwords)
+# Set DATABASE_URL, REDIS_URL, SECRET_KEY (URL-encode @ in DB passwords)
 
-# 2. MCP control plane (Terminal A)
+# 2. MCP control plane (Terminal A) — http://localhost:8001
 PYTHONPATH=. python mcp/run_server.py
 
-# 3. Scripted demo loop — no LLM API key required (Terminal B)
+# 3. Scripted demo — no LLM API key required (Terminal B)
 PYTHONPATH=. python orchestrator/run_demo.py --scripted
 
-# 4. Live Observability Workbench — http://127.0.0.1:7861
+# 4. Observability Workbench — http://127.0.0.1:7861
 PYTHONPATH=. python run_dashboard.py
+
+# 5. Customer Care chat (optional) — http://127.0.0.1:7860
+PYTHONPATH=. python frontend/run_chat.py
 ```
 
-Optional: rebuild the RAG index after editing `knowledge/sources/`:
+Optional: after editing policy sources, rebuild the RAG index:
 
 ```bash
 PYTHONPATH=. python knowledge/index/run_indexer.py
 ```
 
-Customer Care chat UI (separate process): `PYTHONPATH=. python frontend/run_chat.py` → `http://127.0.0.1:7860`
+Gateway API (optional): `PYTHONPATH=. uvicorn main:app --reload --port 8000`
 
-### Golden flows (workbench buttons)
-
-![ACSP Live Observability Workbench](docs/assets/workbench-preview.png)
+### Golden flows (workbench)
 
 | Flow | Intent | What you should see |
 |------|--------|---------------------|
-| **Read** | `BALANCE_INQUIRY` | Tokenized account in LLM panel; `get_account_balance` via MCP |
-| **Knowledge** | `GENERAL_INQUIRY` | `search_knowledge_base`; reply grounded in retrieved policy (not model memory) |
-| **Write** | `FUND_TRANSFER` | Tokenized accounts; OTP gate **LISTENING**; `execute_p2p_transfer` at MCP |
-| **Abuse** | `GENERAL_INQUIRY` + forced `freeze_account` | Zone 3 block: `UNAUTHORIZED` / `tool_not_in_manifest` |
+| **Read** | `BALANCE_INQUIRY` | Tokenized account; `get_account_balance` via MCP |
+| **Knowledge** | `GENERAL_INQUIRY` | `search_knowledge_base`; reply grounded in retrieved policy |
+| **Write** | `FUND_TRANSFER` | Tokenized accounts; OTP gate **LISTENING**; `execute_p2p_transfer` |
+| **Abuse** | `GENERAL_INQUIRY` + forced `freeze_account` | Block: `UNAUTHORIZED` / `tool_not_in_manifest` |
+
+> Add a screenshot at `docs/assets/workbench-preview.png` when you capture the workbench UI.
 
 ---
 
@@ -188,38 +176,35 @@ Customer Care chat UI (separate process): `PYTHONPATH=. python frontend/run_chat
 
 ```text
 .
-├── gateway/          # API ingress (auth, customers, accounts, OTP routers)
-├── security/         # Tokenizer, session vault
+├── gateway/          # FastAPI ingress (auth, customers, accounts, OTP, …)
+├── security/         # Tokenizer + session vault
 ├── orchestrator/     # Intent hint, LLM providers, tool-calling loop
-├── worker/           # MCP client, intent manifest, context injection
-├── mcp/              # MCP HTTP server (:8001), registry, tool handlers
+├── worker/           # MCP client + intent manifest
+├── mcp/              # MCP HTTP server (:8001), registry, tools
 ├── knowledge/        # RAG: load → chunk → index → retrieve
-├── services/         # Domain services behind MCP tools
-├── frontend/         # Customer Care chat UI
-├── workbench/        # Live Observability Workbench
+├── services/         # Domain services used by MCP tools
+├── frontend/         # Customer Care chat (:7860)
+├── workbench/        # Live Observability Workbench (:7861)
 ├── shared/           # Config, schemas, models, logging
-├── database/         # DB bootstrap (`init_db.py`)
-├── docs/             # Assets + local architecture notes (mostly gitignored)
-├── run_dashboard.py  # Workbench entrypoint (:7861)
-└── main.py           # Gateway FastAPI app entry
+├── database/         # ORM bootstrap (`init_db.py`)
+├── docs/assets/      # Architecture diagram (and optional workbench preview)
+├── run_dashboard.py
+└── main.py
 ```
-
-> [!NOTE]
-> The runnable vertical slice is **orchestrator → worker MCP client → MCP server → tools** (plus RAG under `knowledge/` and demos under `frontend/` / `workbench/`).
 
 ---
 
-## MCP Tool Catalogue (implemented)
+## MCP Tool Catalogue
 
 | Tool | Type | Authorized intents |
 |------|------|--------------------|
-| `search_knowledge_base` | Read | `GENERAL_INQUIRY` |
+| `search_knowledge_base` | Read / RAG | `GENERAL_INQUIRY` |
 | `get_account_balance` | Read | `BALANCE_INQUIRY`, `FUND_TRANSFER` |
 | `get_transaction_history` | Read | `TRANSACTION_HISTORY` |
 | `execute_p2p_transfer` | Write + OTP | `FUND_TRANSFER` |
 | `freeze_account` | Write + OTP | `ACCOUNT_MANAGEMENT` |
 
-Manifest source of truth: [`mcp/manifests/tool_permissions.yaml`](mcp/manifests/tool_permissions.yaml)
+Manifest: [`mcp/manifests/tool_permissions.yaml`](mcp/manifests/tool_permissions.yaml)
 
 ---
 
@@ -229,6 +214,7 @@ Manifest source of truth: [`mcp/manifests/tool_permissions.yaml`](mcp/manifests/
 |----------|---------|
 | `DATABASE_URL` | PostgreSQL |
 | `REDIS_URL` | Redis |
+| `SECRET_KEY` | App secrets (change in production) |
 | `MCP_SERVER_URL` | MCP base URL (default `http://localhost:8001`) |
 | `MCP_MAX_INVOCATIONS` | Per-workflow tool-call budget |
 | `LLM_API_KEY` | Optional; scripted/demo modes work without it |
@@ -241,3 +227,13 @@ Full list: [`.env.example`](.env.example)
 ## License
 
 See [LICENSE](LICENSE).
+
+---
+
+## Built as an AAIF Ambassadorship contribution
+
+ACSP was built as part of an **Agentic AI Foundation (AAIF) Ambassadorship** contribution — a working reference for how customer-facing agents can operate in regulated settings without handing the model raw PII, open tool access, or unsupervised writes.
+
+The aim is a story you can run in minutes (MCP server, scripted demo, workbench, chat) and that others can reuse: tokenization, intent manifests, platform-owned `customerContext`, MCP as the only enterprise boundary, RAG for policy questions, and OTP on state changes.
+
+Start with the Quickstart, the architecture diagram, and the workbench golden flows.
