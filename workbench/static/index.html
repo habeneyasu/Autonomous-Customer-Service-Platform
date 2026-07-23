@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ACSP Live Observability Workbench</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div>
+        <p class="eyebrow">ACSP · Zero-Trust MCP Control Plane</p>
+        <h1>Live Observability Workbench</h1>
+      </div>
+      <p class="tagline">The model proposes. The platform tokenizes, authorizes, executes, and audits.</p>
+    </header>
+
+    <section class="tests">
+      <button type="button" class="test ok" data-scenario="balance">Test 1 · Balance Inquiry</button>
+      <button type="button" class="test ok" data-scenario="branch_hours">Test 2 · Branch Hours</button>
+      <button type="button" class="test warn" data-scenario="transfer">Test 3 · P2P Transfer</button>
+      <button type="button" class="test bad" data-scenario="abuse">Simulate Tool Abuse / Injection</button>
+    </section>
+
+    <p id="run-status" class="run-status">Select a golden flow to populate the four zones.</p>
+
+    <!-- Zone 1 -->
+    <section class="zone" id="zone1">
+      <h2>Zone 1 · Active Execution Header</h2>
+      <div class="header-grid">
+        <div class="id-card">
+          <span class="k">CustomerId</span>
+          <code id="customer-id">—</code>
+        </div>
+        <div class="id-card">
+          <span class="k">CorrelationId</span>
+          <code id="correlation-id">—</code>
+        </div>
+        <div class="modes" id="modes"></div>
+      </div>
+    </section>
+
+    <!-- Zone 2 -->
+    <section class="zone" id="zone2">
+      <h2>Zone 2 · Privacy Transformer</h2>
+      <div class="split">
+        <article class="panel raw">
+          <h3>Raw Gateway Ingress</h3>
+          <pre id="raw-message" class="msg">—</pre>
+        </article>
+        <article class="panel tok">
+          <h3>LLM Context (tokenized)</h3>
+          <pre id="tokenized-message" class="msg">—</pre>
+        </article>
+      </div>
+      <p class="hint" id="token-map"></p>
+    </section>
+
+    <!-- Zone 3 -->
+    <section class="zone" id="zone3">
+      <h2>Zone 3 · MCP Control Plane &amp; Tool Inspector</h2>
+      <div class="manifest-row">
+        <div class="intent-badge" id="intent-badge">INTENT —</div>
+        <div class="manifest">
+          <div>
+            <h3>Allowed</h3>
+            <ul id="allowed-tools"></ul>
+          </div>
+          <div>
+            <h3>Blocked</h3>
+            <ul id="blocked-tools"></ul>
+          </div>
+        </div>
+      </div>
+      <div class="cards" id="tool-cards"></div>
+      <p class="reply" id="reply"></p>
+    </section>
+
+    <!-- Zone 4 -->
+    <section class="zone" id="zone4">
+      <h2>Zone 4 · End-to-End Trace Timeline</h2>
+      <ol class="timeline" id="timeline"></ol>
+    </section>
+  </div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
