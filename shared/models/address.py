@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shared.models.base import Base
 
+
 if TYPE_CHECKING:
     from shared.models.customer import Customer
 
@@ -28,3 +29,5 @@ class Address(Base):
         back_populates="address",
         uselist=False,
     )
+
+   

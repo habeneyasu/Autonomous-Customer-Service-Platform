@@ -1,0 +1,19 @@
+# Intent → allowed MCP tools (least privilege).
+# Worker clients may only invoke tools listed for the classified intent.
+
+GENERAL_INQUIRY:
+  - search_knowledge_base
+
+BALANCE_INQUIRY:
+  - get_account_balance
+
+TRANSACTION_HISTORY:
+  - get_transaction_history
+
+FUND_TRANSFER:
+  - get_account_balance
+  - execute_p2p_transfer
+
+ACCOUNT_MANAGEMENT:
+  - freeze_account
+  - get_account_balance

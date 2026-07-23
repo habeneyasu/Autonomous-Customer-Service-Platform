@@ -39,13 +39,21 @@ htmlcov/
 *.cover
 .hypothesis/
 
+# Markdown — do not push (keep only the allow-list below)
+*.md
+!README.md
+!docs/assets/README.md
+
+# RAG — local knowledge sources + vector index (rebuild with indexer)
+.knowledge/
+knowledge/sources/
+
 # Node / frontend
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-dist/
 .next/
 .nuxt/
 .cache/
@@ -66,7 +74,7 @@ temp/
 *.sqlite3
 *.db
 
-# Docker
+# Docker / process
 *.pid
 
 # Secrets and credentials
@@ -74,3 +82,8 @@ temp/
 *.key
 credentials.json
 secrets/
+
+# Streamlit / notebook / OS noise
+.streamlit/
+.ipynb_checkpoints/
+Thumbs.db
